@@ -1,0 +1,175 @@
+VAR
+	TON1: TON;
+	TON4: TON;
+	TON2: TON;
+	TON0: TON;
+	TON7: TON;
+	TON8: TON;
+	TON7_1: TON;
+	TON8_1: TON;
+	TON7_2: TON;
+	TON8_2: TON;
+	TON6: TON;
+	TON9: TON;
+	TON10: TON;
+	TON11: TON;
+	TON12: TON;
+	TON11_1: TON;
+	TON12_1: TON;
+	TON17: TON;
+	TON18: TON;
+	TON21: TON;
+	TON22: TON;
+END_VAR
+
+//Індикація процесу на кнопці старт/стоп
+TON17(IN:= NOT(TON17_SW), PT:= T#1S, Q=> TON17_State);
+TON18(IN:= TON17_SW, PT:= T#1S, Q=> TON18_State);
+IF TON17_State THEN TON17_SW:= TRUE; TON18_SW:= FALSE; END_IF
+IF TON18_State THEN TON17_SW:= FALSE; TON18_SW:= TRUE; END_IF
+IF MW34.10 THEN
+	MW6:= 1; 
+ELSE 
+	IF MW34.7 THEN 
+		MW6:= 2;
+	ELSE
+		IF MW8.1 THEN
+			IF TON17_SW THEN TON18_State:= FALSE; MW6:= 3; END_IF	 
+			IF TON18_SW THEN TON17_State:= FALSE; MW6:= 0; END_IF
+		ELSE
+			MW6:= 0;
+		END_IF
+	END_IF
+END_IF
+//Застереження від повторного зовнішнього старту
+IF NOT(IX0_5) THEN ExtRestart_State:= TRUE; END_IF
+
+//Блок Are you sure/Stop
+IF MW34.10 THEN MW34.6:= FALSE;
+ELSE
+	IF NOT(MW34.4) AND MW8.2 THEN MW34.6:= FALSE; 
+	ELSIF MW34.4 OR NOT(MW8.2) THEN MW34.6:= TRUE; END_IF
+END_IF
+
+//Трігери старт/стоп процесу
+IF NOT(MW34.4) THEN
+	IF TON16_Emergency_stop THEN MW34.10:= FALSE; END_IF
+	IF MW34.8 THEN 
+		IF MW34.10 THEN MW34.10:= FALSE;
+		ELSIF MW8.2 THEN MW34.5:= TRUE; END_IF
+		MW34.8:= FALSE;
+	END_IF
+ELSE
+	IF (MW34.10 AND MW34.8) OR NOT(IX0_5) OR TON16_Emergency_stop THEN MW34.10:= FALSE; MW34.8:= FALSE; END_IF
+	IF IX0_5 AND ExtRestart_State AND MW8.2 THEN MW34.10:= TRUE; ExtRestart_State:=FALSE; END_IF
+END_IF
+
+//Цикл автоматичного режиму
+TON1(IN:= MW34.10, PT:= WORD_TO_TIME(MW56), Q=> TON1_A_State); //T1
+TON21(IN:= MW34.10, PT:= WORD_TO_TIME(MW134), Q=> TON21_A_State); //T13
+//Конфігурація частотних виходів
+FreqGen_0(EN_Enable:= TRUE, F_Enable:= TRUE, EN_Sync:= TRUE, F_Sync:= TRUE, Frequency:= MD254);
+PWM_0(EN_Enable:= TRUE, F_Enable:= TRUE, EN_Sync:= TRUE, F_Sync:= TRUE,  Frequency:= MD222, Duty:= MW28);
+
+//Задання попередніх параметрів зварювання до старту
+CAN_SET_OperMode_1:= TRUE;
+CAN_SET_OperMode_2:= TRUE;
+CAN_SET_DC_AC := MW18.15;// Вибір режиму зварювання (AC або DC)
+CAN_SET_WeldSim:= MW34.3;
+CAN_SET_PlasmaGasFlow:= MW44;
+CAN_SET_ShieldGasFlow:= MW46;
+
+//START
+IF MW34.10 THEN 
+	MW34.7:= TRUE; //In Process start
+	//Керування подачею дроту та порошку
+	TON7(IN:= MW2.13 AND (((MW34.1 OR MW34.2) AND MW18.8) OR (MW34.0 AND NOT(MW34.1) AND NOT(MW34.2))), PT:= WORD_TO_TIME(MW68), Q=> TON7_A_State);
+	TON8(IN:= MW2.14 AND (((MW34.1 OR MW34.2) AND MW18.8) OR (MW34.0 AND NOT(MW34.1) AND NOT(MW34.2))), PT:= WORD_TO_TIME(MW70), Q=> TON8_A_State);
+	IF TON7_A_State AND MW2.13 THEN QX5_0:= TRUE; END_IF
+	IF TON8_A_State AND MW2.14 THEN QX5_1:= TRUE; END_IF
+	IF NOT(MW2.13) THEN QX5_0:= FALSE; END_IF
+	IF NOT(MW2.14) THEN QX5_1:= FALSE; END_IF
+	//Керування газами
+	IF MW2.1 THEN 
+		IF NOT(MW18.8) THEN QX3_1:= TRUE; END_IF
+	ELSE QX3_1:= FALSE; END_IF
+	IF MW2.6 THEN
+		IF NOT(MW18.8) THEN QX3_6:= TRUE; END_IF
+	ELSE QX3_6:= FALSE; END_IF
+	QX3_0:= MW2.0; QX3_3:= MW2.3; QX3_4:= MW2.4; QX3_5:= MW2.5; QX4_1:= MW2.9; QX4_2:= MW2.10; QX4_3:= MW2.11;
+	IF MW2.12 AND MW18.8 THEN MD254:= WORD_TO_DWORD(MW54); ELSE MD254:= 0; END_IF
+	IF MW2.7 THEN
+		IF MW18.8 THEN QX3_7:= TRUE; END_IF
+	ELSE QX3_7:= FALSE; END_IF
+	IF MW2.8 THEN
+		IF MW18.8 THEN QX4_0:= TRUE; END_IF
+	ELSE QX4_0:= FALSE; END_IF
+	TON6(IN:= MW18.8, PT:= WORD_TO_TIME(MW66), Q=> TON6_A_State);
+	IF TON6_A_State THEN QX3_1:= FALSE; QX3_6:= FALSE; END_IF
+	//Керування лазером
+	TON2(IN:= TON1_A_State AND MW34.0 AND ((NOT(MW34.1) AND NOT(MW34.2)) OR ((MW34.1 OR MW34.2) AND MW18.8)), PT:= WORD_TO_TIME(MW58), Q=> TON2_A_State);
+	IF MW34.0 AND TON2_A_State THEN QW8:= MW36; END_IF
+	TON0(IN:= MW34.0 AND TON2_A_State, PT:= T#20MS, Q=> TON0_A_State);
+	IF TON0_A_State THEN QX1_0:= TRUE; QX1_1:= TRUE; MD222:= WORD_TO_DWORD(MW38); MW28:= MW40;
+	ELSE QX1_0:= FALSE; QX1_1:= FALSE; MD222:=0; MW28:= 0; QW8:= 0; END_IF
+	//Керування джерелом зварювання
+	TON4(IN:= CAN_GET_PilotArc, PT:= WORD_TO_TIME(MW62), Q=> TON4_A_State);
+	CAN_SET_RobotReady:= TRUE;
+	IF MW34.1 THEN 
+		CAN_SET_WeldCurrent:= MW42;
+		IF TON1_A_State THEN CAN_SET_PilotArc:= TRUE; END_IF
+		IF TON4_A_State THEN CAN_SET_ArcOn:= TRUE; END_IF
+	ELSE
+		CAN_SET_ArcOn:= FALSE;
+		CAN_SET_PilotArc:= FALSE;
+		CAN_SET_WeldCurrent:= 0;	
+	END_IF
+	//Керування джерелом різання
+	IF MW34.2 THEN
+		QW7:= MW48;
+		IF TON1_A_State = TRUE THEN QX5_5:= TRUE; END_IF
+	ELSE
+		QX5_5:= FALSE;
+		QW7:= 0;
+	END_IF
+	//Керування MIG джерелом
+	IF MW34.9 THEN
+		QW9:= MW138;
+		QW10:= MW140;
+		IF TON21_A_State = TRUE THEN QX5_3:= TRUE; END_IF
+	ELSE
+		QX5_3:= FALSE;
+		QW9:= 0;
+		QW10:= 0;
+	END_IF
+ELSE
+//STOP
+	//Керування джерелом зварювання
+	CAN_SET_ArcOn:= FALSE;
+	CAN_SET_PilotArc:= FALSE;
+	CAN_SET_WeldCurrent:= 0;
+	CAN_SET_RobotReady:= FALSE;
+	//Керування джерелом різання
+	QX5_5:= FALSE;
+	QW7:= 0;
+END_IF
+//Керування подачею дроту та порошку
+TON11(IN:= NOT(MW34.10), PT:= WORD_TO_TIME(MW76), Q=> TON11_A_State);
+TON12(IN:= NOT(MW34.10), PT:= WORD_TO_TIME(MW78), Q=> TON12_A_State);
+IF TON11_A_State THEN QX5_0:= FALSE; END_IF
+IF TON12_A_State THEN QX5_1:= FALSE; END_IF
+//Керування газами
+TON10(IN:= NOT(MW34.10), PT:= WORD_TO_TIME(MW74), Q=> TON10_A_State);
+IF TON10_A_State THEN 
+	QX3_0:= FALSE; QX3_1:= FALSE; QX3_3:= FALSE; QX3_4:= FALSE; QX3_5:= FALSE; QX3_6:= FALSE; QX3_7:= FALSE;
+	QX4_0:= FALSE; QX4_1:= FALSE; QX4_2:= FALSE; QX4_3:= FALSE; MD254:= 0;
+END_IF
+//Керування лазером
+TON9(IN:= NOT(MW34.10), PT:= WORD_TO_TIME(MW72), Q=> TON9_A_State);
+IF TON9_A_State THEN QX1_0:= FALSE; QX1_1:= FALSE; MD222:=0; MW28:= 0; QW8:= 0; END_IF
+//Керування MIG джерелом
+TON22(IN:= NOT(MW34.10), PT:= WORD_TO_TIME(MW136), Q=> TON22_A_State); //T14
+IF TON22_A_State THEN QX5_3:= FALSE; QW9:= 0; QW10:= 0; END_IF
+//In Process stop
+IF TON9_A_State AND TON10_A_State AND TON11_A_State AND TON12_A_State THEN MW34.7:= FALSE; END_IF
+QX4_6:= MW34.7; //Видача In progress на робот

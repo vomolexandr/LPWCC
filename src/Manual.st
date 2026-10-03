@@ -1,0 +1,119 @@
+VAR
+	WORD_AS_BIT_1: WORD_AS_BIT;
+	TON0: TON;
+	TON1: TON;
+	TON2: TON;
+	TON3: TON;
+	TON17: TON;
+	TON18: TON;
+END_VAR
+
+//Індикація мигання надпису ALARM
+TON17(IN:= NOT(TON17_SW), PT:= T#1MS, Q=> TON17_State);
+TON18(IN:= TON17_SW, PT:= T#1S, Q=> TON18_State);
+IF TON17_State THEN TON17_SW:= TRUE; TON18_SW:= FALSE; END_IF
+IF TON18_State THEN TON17_SW:= FALSE; TON18_SW:= TRUE; END_IF
+IF MW8.1 THEN
+	IF TON17_SW THEN TON18_State:= FALSE; MW102:= 1; END_IF	 
+	IF TON18_SW THEN TON17_State:= FALSE; MW102:= 0; END_IF
+END_IF
+
+//Керування газами
+WORD_AS_BIT_1( W:= MW4,B01=> QX3_0, B02=> QX3_1, B04=> QX3_3, B05=> QX3_4, B07=> QX3_5, B08=> QX3_6, B09=> QX3_7, B10=> QX4_0, B11=> QX4_1, B12=> QX4_2, B13=> QX4_3);
+//Частотний клапан FESTO
+IF MW4.14 THEN MD232:= WORD_TO_DWORD(MW32); ELSE MD232:= 0; END_IF
+FreqGen_0(EN_Enable:= TRUE, F_Enable:= TRUE, EN_Sync:= TRUE, F_Sync:= TRUE, Frequency:= MD232);
+//Керування двигуном подачі дроту
+QX5_0:= MW18.1;
+//Керування двигуном подачі порошку
+QX5_1:= MW18.2;
+//Керування лазером
+IF MW0.7 OR (MW0.6 AND MW8.3) THEN MW0.8:= FALSE; ELSE MW0.8:= TRUE; END_IF
+IF MW0.6 THEN
+	QW8:= MW20;
+ELSE
+	QW8:= 0;
+END_IF
+IF MW0.7 AND MW8.3 THEN
+	QX1_0:= TRUE;
+	QX1_1:= TRUE;
+	MD222:= WORD_TO_DWORD(MW22);
+	MW28:= MW26;
+ELSIF NOT(MW0.7) OR TON20_Emergency_stop THEN
+	MW0.7:= FALSE;
+	QX1_0:= FALSE;
+	QX1_1:= FALSE;
+	MD222:= 0;
+	MW28:= 0;
+END_IF
+PWM_0(
+	EN_Enable:= TRUE, 
+	F_Enable:= TRUE, 
+	EN_Sync:= TRUE, 
+	F_Sync:= TRUE,  
+	Frequency:= MD222, 
+	Duty:= MW28);
+	
+//Керування джерелом різання
+IF MW0.9 OR (MW0.13 AND MW8.4) THEN MW0.15:= FALSE; ELSE MW0.15:= TRUE; END_IF
+IF MW0.13 THEN
+	QW7:= MW16;
+ELSE 
+	QW7:= 0;
+END_IF
+IF MW0.9 AND MW8.4 THEN
+	QX5_5:= TRUE;
+ELSIF NOT(MW0.9) OR TON20_Emergency_stop THEN
+	MW0.9:= FALSE;
+	QX5_5:= FALSE;
+END_IF
+
+//Керування джерелом MIG
+IF MW34.15 OR (MW34.13 AND MW8.15) THEN MW34.14:= FALSE; ELSE MW34.14:= TRUE; END_IF
+IF MW34.13 THEN
+	QW9:= MW130;
+	QW10:= MW132;
+ELSE
+	QW9:= 0;
+	QW10:= 0;
+END_IF
+IF MW34.15 AND MW8.15 THEN
+	QX5_3:= TRUE;
+ELSIF NOT(MW34.15) OR TON20_Emergency_stop THEN
+	MW34.15:= FALSE;
+	QX5_3:= FALSE;
+END_IF
+
+//Керування джерелом зварювання
+IF MW0.10 OR MW0.11 OR (MW0.12 AND MW8.5) THEN MW0.14:= FALSE; ELSE MW0.14:= TRUE; END_IF
+IF MW0.10 OR MW0.11 THEN MW2.2:= TRUE; ELSE MW2.2:= FALSE; END_IF
+CAN_SET_WeldSim:= MW0.0;
+CAN_SET_PlasmaGasFlow:= MW24;
+CAN_SET_ShieldGasFlow:= MW30;
+CAN_SET_OperMode_1:= TRUE;
+CAN_SET_OperMode_2:= TRUE;
+CAN_SET_DC_AC := MW18.15;// Вибір режиму зварювання (AC або DC)
+IF MW0.12 THEN
+	CAN_SET_RobotReady:= TRUE;
+	CAN_SET_WeldCurrent:= MW12;
+ELSE
+	CAN_SET_RobotReady:= FALSE;
+	CAN_SET_WeldCurrent:= 0;
+END_IF
+IF MW0.10 AND MW8.5 THEN
+	CAN_SET_PilotArc:= TRUE;
+	IF MW0.11 AND MW8.5 THEN
+		CAN_SET_ArcOn:= TRUE;
+	ELSIF NOT(MW0.11) OR TON20_Emergency_stop THEN
+		MW0.11:= FALSE;
+		CAN_SET_ArcOn:= FALSE;
+	END_IF
+ELSIF NOT(MW0.10) OR TON20_Emergency_stop THEN
+	MW0.10:= FALSE;
+	MW0.11:= FALSE;
+	CAN_SET_PilotArc:= FALSE;
+	CAN_SET_ArcOn:= FALSE;
+	MW0.11:= FALSE;
+END_IF
+//Блок переходу в автомат та видача IN PROGRESS в ручному режимі
+IF CAN_SET_ArcOn OR CAN_SET_PilotArc OR QX5_5 OR QX5_3 OR QX1_0 OR QX1_1 THEN MW8.14:= TRUE; QX4_6:= TRUE; ELSE MW8.14:= FALSE; QX4_6:= FALSE; END_IF

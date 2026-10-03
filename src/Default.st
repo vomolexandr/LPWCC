@@ -1,0 +1,58 @@
+VAR
+	I: INT;
+END_VAR
+
+MW34.10:= FALSE;
+MW0.7:= FALSE;
+MW0.9:= FALSE;
+MW0.10:= FALSE;
+MW0.11:= FALSE;
+MW4.1:= FALSE;
+MW4.2:= FALSE;
+MW4.3:= FALSE;
+MW4.4:= FALSE;
+MW4.5:= FALSE;
+MW4.7:= FALSE;
+MW4.8:= FALSE;
+MW4.9:= FALSE;
+MW4.10:= FALSE;
+MW4.11:= FALSE;
+MW4.12:= FALSE;
+MW4.13:= FALSE;
+MW4.14:= FALSE;
+MW18.1:= FALSE;
+MW18.2:= FALSE;
+MD254:= 0;
+MD304:= 0;
+QX3_0:= FALSE; 
+QX3_1:= FALSE; 
+QX3_2:= FALSE; 
+QX3_3:= FALSE; 
+QX3_4:= FALSE; 
+QX3_5:= FALSE; 
+QX3_6:= FALSE; 
+QX3_7:= FALSE;
+QX4_0:= FALSE; 
+QX4_1:= FALSE; 
+QX4_2:= FALSE; 
+QX4_3:= FALSE;
+QX1_0:= FALSE; 
+QX1_1:= FALSE; 
+QX5_0:= FALSE;
+QX5_1:= FALSE;
+MD222:=0; 
+MW28:= 0; 
+QW8:= 0;
+CAN_SET_ArcOn:= FALSE;
+CAN_SET_PilotArc:= FALSE;
+CAN_SET_WeldCurrent:= 0;
+CAN_SET_RobotReady:= FALSE;
+QX5_5:= FALSE;
+QW7:= 0;
+QX5_3:= FALSE;
+QW9:= 0;
+QW10:= 0;
+//Конфігурація частотних виходів
+FreqGen_0(EN_Enable:= TRUE, F_Enable:= TRUE, EN_Sync:= TRUE, F_Sync:= TRUE, Frequency:= MD254);
+FreqGen_1(EN_Enable:= TRUE, F_Enable:= TRUE, EN_Sync:= TRUE, F_Sync:= TRUE, Frequency:= MD304);
+PWM_0(EN_Enable:= TRUE, F_Enable:= TRUE, EN_Sync:= TRUE, F_Sync:= TRUE,  Frequency:= MD222, Duty:= MW28);
