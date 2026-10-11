@@ -1,5 +1,5 @@
 HMI/** linguist-vendored
-*.st -linguist-detectable
+*.st linguist-language=Pascal
 *.project binary
 *.dpj binary
 *.wpj binary
